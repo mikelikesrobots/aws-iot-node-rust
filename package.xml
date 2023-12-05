@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>aws_iot_node</name>
+  <version>0.0.0</version>
+  <description>Node with optional features for building AWS IoT Functionality</description>
+  <maintainer email="mikelikesrobots@outlook.com">Mike Likes Robots</maintainer>
+  <license>MIT-0</license>
+
+  <depend>rclrs</depend>
+  <depend>std_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

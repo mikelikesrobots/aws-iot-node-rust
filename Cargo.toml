@@ -1,0 +1,29 @@
+[package]
+name = "aws_iot_node"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "mock-telemetry"
+path = "src/mock_telemetry_publisher.rs"
+
+[[bin]]
+name = "mqtt-telemetry"
+path = "src/mqtt_telemetry_publisher.rs"
+
+[dependencies]
+rclrs = "*"
+serde_json = "1.0"
+rand = "*"
+thiserror = "1.0.0"
+rumqtt = "0.31.0"
+anyhow = "1.0.75"
+
+[dependencies.std_msgs]
+version = "*"
+
+[dependencies.serde]
+version = "1.0.193"
+features = ["derive"]
