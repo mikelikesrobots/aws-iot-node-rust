@@ -29,8 +29,8 @@ impl MockTelemetryPublisherNode {
     fn publish_mock_data(&self) -> Result<(), rclrs::RclrsError> {
         let mut rng = rand::thread_rng();
         let data = MockTelemetryPoint {
-            battery: round2dp(rng.gen_range(85f32, 90f32)),
-            velocity: round2dp(rng.gen_range(3.0f32, 4.0f32)),
+            battery: round2dp(rng.gen_range(85f32 .. 90f32)),
+            velocity: round2dp(rng.gen_range(3.0f32 .. 4.0f32)),
         };
         let serialized = serde_json::to_string(&data).map_err(|_| RclrsError::RclError {
             code: rclrs::RclReturnCode::Error,
