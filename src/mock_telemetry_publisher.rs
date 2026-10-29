@@ -1,8 +1,8 @@
 use rclrs::RclrsError;
-use rand::Rng;
+use rclrs::{CreateBasicExecutor, RclrsErrorFilter};
+use ros_env::std_msgs::msg::String as StringMsg;
 use serde::Serialize;
 use std::sync::Arc;
-use std_msgs::msg::String as StringMsg;
 
 #[derive(Serialize, Debug)]
 struct MockTelemetryPoint {
@@ -10,8 +10,8 @@ struct MockTelemetryPoint {
     velocity: f32,
 }
 struct MockTelemetryPublisherNode {
-    node: Arc<rclrs::Node>,
-    _publisher: Arc<rclrs::Publisher<StringMsg>>,
+    _node: rclrs::Node,
+    _publisher: rclrs::Publisher<StringMsg>,
 }
 
 fn round2dp(x: f32) -> f32 {
@@ -19,18 +19,20 @@ fn round2dp(x: f32) -> f32 {
 }
 
 impl MockTelemetryPublisherNode {
-    fn new(context: &rclrs::Context) -> Result<Self, rclrs::RclrsError> {
-        let node = rclrs::Node::new(context, "mock_telemetry_publisher")?;
-        let _publisher = node.create_publisher("mock_telemetry", rclrs::QOS_PROFILE_DEFAULT)?;
+    fn new(executor: &rclrs::Executor) -> Result<Self, rclrs::RclrsError> {
+        let node = executor.create_node("mock_telemetry_publisher")?;
+        let _publisher = node.create_publisher("mock_telemetry")?;
 
-        Ok(Self { node, _publisher })
+        Ok(Self {
+            _node: node,
+            _publisher,
+        })
     }
 
     fn publish_mock_data(&self) -> Result<(), rclrs::RclrsError> {
-        let mut rng = rand::thread_rng();
         let data = MockTelemetryPoint {
-            battery: round2dp(rng.gen_range(85f32 .. 90f32)),
-            velocity: round2dp(rng.gen_range(3.0f32 .. 4.0f32)),
+            battery: round2dp(rand::random_range(85f32..90f32)),
+            velocity: round2dp(rand::random_range(3.0f32..4.0f32)),
         };
         let serialized = serde_json::to_string(&data).map_err(|_| RclrsError::RclError {
             code: rclrs::RclReturnCode::Error,
@@ -43,8 +45,9 @@ impl MockTelemetryPublisherNode {
 }
 
 fn main() -> Result<(), rclrs::RclrsError> {
-    let context = rclrs::Context::new(std::env::args())?;
-    let mock_telemetry = Arc::new(MockTelemetryPublisherNode::new(&context)?);
+    let context = rclrs::Context::default_from_env()?;
+    let mut executor = context.create_basic_executor();
+    let mock_telemetry = Arc::new(MockTelemetryPublisherNode::new(&executor)?);
     let mock_telemetry_other_thread = Arc::clone(&mock_telemetry);
     std::thread::spawn(move || -> Result<(), rclrs::RclrsError> {
         loop {
@@ -53,5 +56,5 @@ fn main() -> Result<(), rclrs::RclrsError> {
             mock_telemetry_other_thread.publish_mock_data()?;
         }
     });
-    rclrs::spin(mock_telemetry.node.clone())
+    executor.spin(rclrs::SpinOptions::default()).first_error()
 }

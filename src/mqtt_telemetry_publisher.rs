@@ -1,25 +1,27 @@
+use rclrs::{CreateBasicExecutor, RclrsErrorFilter};
 mod config;
 
 use anyhow::Result;
 use config::Config;
+use ros_env::std_msgs::msg::String as StringMsg;
+use rumqtt::{MqttClient, MqttOptions, QoS};
 use std::{
     fs,
     sync::{Arc, Mutex},
 };
-use std_msgs::msg::String as StringMsg;
-use rumqtt::{MqttClient, MqttOptions, QoS};
 
 struct MqttTelemetryPublisherNode {
-    node: Arc<rclrs::Node>,
-    _publisher: Arc<rclrs::Publisher<StringMsg>>,
-    _subscription: Arc<rclrs::Subscription<StringMsg>>,
+    _node: rclrs::Node,
+    _publisher: rclrs::Publisher<StringMsg>,
+    _subscription: rclrs::Subscription<StringMsg>,
     _mqtt_client: Arc<Mutex<MqttClient>>,
 }
 
 impl MqttTelemetryPublisherNode {
-    fn new(context: &rclrs::Context) -> Result<Self> {
-        let node = rclrs::Node::new(context, "mqtt_publisher")?;
-        let path_param = node.declare_parameter::<Arc<str>>("path_for_config")
+    fn new(executor: &rclrs::Executor) -> Result<Self> {
+        let node = executor.create_node("mqtt_publisher")?;
+        let path_param = node
+            .declare_parameter::<Arc<str>>("path_for_config")
             .mandatory()
             .expect("path_for_config must be set");
 
@@ -40,19 +42,23 @@ impl MqttTelemetryPublisherNode {
         let _mqtt_client = Arc::new(Mutex::new(mqtt_client));
         let mqtt_cb = Arc::clone(&_mqtt_client);
 
-        let _publisher =
-            node.create_publisher::<StringMsg>("mock_telemetry", rclrs::QOS_PROFILE_DEFAULT)?;
-        let _subscription = node.create_subscription(
-            "mock_telemetry",
-            rclrs::QOS_PROFILE_DEFAULT,
-            move |msg: StringMsg| {
-                println!("Received data to republish: {}", msg.data);
-                mqtt_cb.lock().unwrap().publish("ros2_mock_telemetry_topic", QoS::AtLeastOnce, false, msg.data).expect("Could not publish payload!");
-            },
-        )?;
+        let _publisher = node.create_publisher::<StringMsg>("mock_telemetry")?;
+        let _subscription = node.create_subscription("mock_telemetry", move |msg: StringMsg| {
+            println!("Received data to republish: {}", msg.data);
+            mqtt_cb
+                .lock()
+                .unwrap()
+                .publish(
+                    "ros2_mock_telemetry_topic",
+                    QoS::AtLeastOnce,
+                    false,
+                    msg.data,
+                )
+                .expect("Could not publish payload!");
+        })?;
 
         Ok(Self {
-            node,
+            _node: node,
             _publisher,
             _subscription,
             _mqtt_client,
@@ -61,7 +67,9 @@ impl MqttTelemetryPublisherNode {
 }
 
 fn main() -> Result<()> {
-    let context = rclrs::Context::new(std::env::args())?;
-    let mqtt_telemetry = MqttTelemetryPublisherNode::new(&context)?;
-    rclrs::spin(mqtt_telemetry.node).map_err(|e| e.into())
+    let context = rclrs::Context::default_from_env()?;
+    let mut executor = context.create_basic_executor();
+    let _mqtt_telemetry = MqttTelemetryPublisherNode::new(&executor)?;
+    executor.spin(rclrs::SpinOptions::default()).first_error()?;
+    Ok(())
 }
